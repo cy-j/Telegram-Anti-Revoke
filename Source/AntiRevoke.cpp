@@ -13,7 +13,7 @@ void Session::ProcessRevoke(HistoryMessage* pMessage)
 
 		QtString *pTimeText = pMessage->GetTimeText();
 		if (!pTimeText->IsValidTime()) {
-			g::Logger.TraceWarn("A bad TimeText. Address: [" + Text::Format("0x%x", pMessage) + "] Content: [" + Convert::UnicodeToAnsi(pTimeText->GetText()) + "]");
+			g::Logger.TraceWarn("A bad TimeText. Address: [" + Text::Format("0x%x", pMessage) + "]");
 			return;
 		}
 
@@ -42,28 +42,56 @@ void ProcessItems()
 			{
 				QtString *pTimeText = NULL;
 				HistoryMessageEdited *pEdited = pMessage->GetEdited();
-				if (pEdited == NULL) {
-					// Normal msg
-					pTimeText = pMessage->GetTimeText();
+				HistoryMessageSigned *pSigned = pMessage->GetSigned();
+
+				// Signed msg take precedence over Edited msg, and TG uses the Signed text when both exist.
+				if (pSigned != NULL) {
+					// Signed msg
+					pTimeText = pSigned->GetTimeText();
 				}
-				else {
+				else if (pEdited != NULL) {
 					// Edited msg
 					// The edited message time string is not in Item, but is managed by EditedComponent
 					pTimeText = pEdited->GetTimeText();
 				}
+				else {
+					// Normal msg
+					pTimeText = pMessage->GetTimeText();
+				}
 
-				if (pTimeText->IsEmpty() || pTimeText->Find(g::CurrentMark.Content) != wstring::npos) {
+				//  vvvvvvvvvvvvvvvvvvvvvvvvvvvv TODO: This is temp code, hook HistoryMessage's destructor function to improve.
+				if (!pTimeText->IsValidTime() || pTimeText->IsEmpty() || pTimeText->Find(g::CurrentMark.Content) != wstring::npos) {
 					// [Empty] This message isn't the current channel or group. 
 					// [Found] This message is marked.
 					return;
 				}
 
 				// Mark deleted
-				wstring MarkedTime = g::CurrentMark.Content + pTimeText->GetText();
+				wstring MarkedTime;
+
+				if (pSigned != NULL)
+				{
+					// Signed msg text: "<author>, <time>" ("xxx, 10:20")
+					//
+					wstring OriginalString = pTimeText->GetText();
+					size_t Pos = OriginalString.rfind(L", ");
+					if (Pos == wstring::npos) {
+						return;
+					}
+
+					MarkedTime = OriginalString.substr(0, Pos + 2) + g::CurrentMark.Content + OriginalString.substr(Pos + 2);
+				}
+				else {
+					MarkedTime = g::CurrentMark.Content + pTimeText->GetText();
+				}
+
 				pTimeText->Replace(MarkedTime.c_str());
 
 				// Modify width
 				HistoryViewElement *pMainView = pMessage->GetMainView();
+				if (pMainView == NULL) {
+					return;
+				}
 				pMainView->SetWidth(pMainView->GetWidth() + g::CurrentMark.Width);
 				pMessage->SetTimeWidth(pMessage->GetTimeWidth() + g::CurrentMark.Width);
 

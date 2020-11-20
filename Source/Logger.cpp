@@ -5,7 +5,7 @@
 
 LoggerManager::LoggerManager()
 {
-	this->File.open("ArLog.txt", ios::app);
+	this->File.open("ArLog.txt", ofstream::out | ofstream::trunc);
 
 	TraceInfo("");
 	TraceInfo("Running. Version: [" AR_VERSION "]");
@@ -96,7 +96,7 @@ void LoggerManager::TraceError(const string &Content, BOOLEAN bReport)
 		// So replace ShellExecute with system, there is not much difference anyway.
 
 		// ShellExecute(NULL, L"open", L"https://github.com/SpriteOvO/Telegram-Anti-Revoke/issues", NULL, NULL, SW_SHOWNORMAL);
-		system("start " AR_URL_ISSUES);
+		system("start " AR_ISSUES_URL);
 	}
 
 	if (Result == IDABORT) {
